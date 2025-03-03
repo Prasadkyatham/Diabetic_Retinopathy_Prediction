@@ -1,1 +1,106 @@
+Sub SplitLargeTextFile()
+    Dim FilePath As String
+    Dim DestinationFolder As String
+    Dim FileNum As Integer
+    Dim LineData As String
+    Dim RowCount As Long
+    Dim SheetCount As Integer
+    Dim WorkbookCount As Integer
+    Dim ws As Worksheet
+    Dim wb As Workbook
+    Dim xlApp As Object
+    Dim MaxRows As Long
+    Dim MaxSheets As Integer
+    Dim DataArray() As String
+    Dim i As Long
+
+    ' Set file path (Modify this)
+    FilePath = "C:\YourFolder\YourLargeFile.txt"
+    
+    ' Set destination folder for new workbooks (Modify this)
+    DestinationFolder = "C:\YourFolder\SplitFiles\"
+    
+    ' Create folder if it doesn't exist
+    If Dir(DestinationFolder, vbDirectory) = "" Then
+        MkDir DestinationFolder
+    End If
+    
+    ' Open the text file
+    FileNum = FreeFile
+    Open FilePath For Input As #FileNum
+    
+    ' Initialize counters
+    WorkbookCount = 1
+    SheetCount = 1
+    RowCount = 0
+    MaxRows = 25000  ' Max rows per sheet
+    MaxSheets = 10   ' Max sheets per workbook (adjust as needed)
+    
+    ' Create first workbook
+    Set xlApp = CreateObject("Excel.Application")
+    xlApp.Visible = True
+    Set wb = xlApp.Workbooks.Add
+    
+    ' Delete extra default sheets
+    Application.DisplayAlerts = False
+    Do While wb.Sheets.Count > 1
+        wb.Sheets(1).Delete
+    Loop
+    Application.DisplayAlerts = True
+
+    ' Add first sheet
+    Set ws = wb.Sheets.Add
+    ws.Name = "Sheet1"
+    
+    ' Read and process file
+    Do While Not EOF(FileNum)
+        Line Input #FileNum, LineData
+        DataArray = Split(LineData, vbTab)  ' Adjust delimiter if needed
+        
+        ' Write data to sheet
+        RowCount = RowCount + 1
+        For i = LBound(DataArray) To UBound(DataArray)
+            ws.Cells(RowCount, i + 1).Value = DataArray(i)
+        Next i
+        
+        ' Check if new sheet is needed
+        If RowCount >= MaxRows Then
+            SheetCount = SheetCount + 1
+            RowCount = 0
+            
+            ' Create new sheet or new workbook
+            If SheetCount > MaxSheets Then
+                ' Save current workbook
+                wb.SaveAs DestinationFolder & "SplitFile_" & WorkbookCount & ".xlsx"
+                wb.Close False
+                
+                ' Start new workbook
+                WorkbookCount = WorkbookCount + 1
+                SheetCount = 1
+                Set wb = xlApp.Workbooks.Add
+                
+                ' Delete extra sheets
+                Application.DisplayAlerts = False
+                Do While wb.Sheets.Count > 1
+                    wb.Sheets(1).Delete
+                Loop
+                Application.DisplayAlerts = True
+            End If
+            
+            ' Create new sheet
+            Set ws = wb.Sheets.Add
+            ws.Name = "Sheet" & SheetCount
+        End If
+    Loop
+    
+    ' Save last workbook
+    wb.SaveAs DestinationFolder & "SplitFile_" & WorkbookCount & ".xlsx"
+    wb.Close False
+    
+    ' Cleanup
+    Close #FileNum
+    xlApp.Quit
+    Set xlApp = Nothing
+    MsgBox "Splitting Completed!", vbInformation
+End Sub
 
